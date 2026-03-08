@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聲音數位化 Digitization of Sound | 互動科學館</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- p5.js for Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0fdf4; }
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); }
+        .hidden { display: none !important; }
+        .tab-active { background-color: #3b82f6; color: white; }
+        .tab-inactive { background-color: #e5e7eb; color: #4b5563; }
+        .tab-inactive:hover { background-color: #d1d5db; }
+        
+        /* Custom Slider Styling */
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: #f97316; cursor: pointer; margin-top: -8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: #bfdbfe; border-radius: 4px; }
+        input[type=range]:focus { outline: none; }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="fixed inset-0 bg-blue-900 bg-opacity-80 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="glass-panel p-10 rounded-3xl shadow-2xl max-w-md w-full text-center transform scale-100 transition-transform duration-300">
+            <div class="flex justify-center mb-4 text-blue-500">
+                <i data-lucide="audio-lines" class="w-20 h-20"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">聲音數位化探險</h1>
+            <p class="text-gray-500 mb-6">歡迎來到互動科學館！請輸入你的特務代號登入。</p>
+            
+            <div class="space-y-4">
+                <!-- 修改為下拉選單 -->
+                <select id="login-class" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 outline-none text-lg bg-white">
+                    <option value="" disabled selected>請選擇班級</option>
+                    <option value="901">901</option>
+                    <option value="902">902</option>
+                    <option value="903">903</option>
+                    <option value="904">904</option>
+                    <option value="905">905</option>
+                    <option value="906">906</option>
+                </select>
+                <input type="number" id="login-seat" placeholder="座號 (例: 5)" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 outline-none text-lg">
+                <input type="text" id="login-name" placeholder="姓名" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 outline-none text-lg">
+                <button onclick="app.login()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl text-xl shadow-lg transform transition active:scale-95">
+                    開始探險 🚀
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="main-app" class="hidden flex-1 flex flex-col md:flex-row h-full">
+        <!-- Sidebar Navigation -->
+        <div class="w-full md:w-64 bg-white shadow-xl z-10 flex flex-col flex-shrink-0 overflow-y-auto">
+            <div class="p-6 bg-blue-600 text-white flex items-center gap-3">
+                <i data-lucide="waves" class="w-8 h-8"></i>
+                <h2 class="text-xl font-bold leading-tight">數位聲音<br>特務訓練</h2>
+            </div>
+            <div class="p-4 bg-blue-50 text-sm font-semibold text-blue-800 border-b border-blue-100 flex justify-between items-center">
+                <span id="display-user-info">901-05 王大明</span>
+                <span id="timer" class="text-orange-500 font-mono">00:00</span>
+            </div>
+            <nav class="flex-1 p-4 space-y-2" id="nav-menu"></nav>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 bg-gray-50 overflow-y-auto relative">
+            <div class="p-8 max-w-5xl mx-auto" id="content-area"></div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <h3 class="text-xl font-bold mb-4" id="alert-title">提示</h3>
+            <p class="mb-6 text-gray-600" id="alert-message">訊息</p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-bold">確定</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 🌟 教師設定區：請將下方的網址替換為您的 Google Apps Script 部署網址
+        // ==========================================
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbybO_K-OInoWvQzQePzI1d1n0L5_A2JqD2u4/exec"; // <-- 貼上您的網址
+
+        // 簡易加密工具 (保護正確答案，避免學生直接看程式碼作弊)
+        const Secret = {
+            key: 42,
+            dec: (encoded) => Array.from(atob(encoded)).map(c => String.fromCharCode(c.charCodeAt(0) ^ Secret.key)).join('')
+        };
+
+        const refreshIcons = () => {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+
+        // --- 應用程式狀態 ---
+        const app = {
+            user: { class: '', seat: '', name: '' },
+            startTime: null,
+            timerInterval: null,
+            currentUnit: 0,
+            p5instances: [],
+            quizScore: 0,
+            quizResults: { correct: 0, wrongNums: [] }, // 改為記錄錯誤題號陣列
+            
+            // --- 課程與測驗資料 ---
+            units: [
+                { id: 'u1', title: '1. 聲音是什麼？', icon: 'volume-2', render: () => renderUnit1() },
+                { id: 'u2', title: '2. 類比 vs 數位', icon: 'arrow-right-left', render: () => renderUnit2() },
+                { id: 'u3', title: '3. 取樣 (Sampling)', icon: 'activity', render: () => renderUnit3() },
+                { id: 'u4', title: '4. 量化 (Quantization)', icon: 'bar-chart-3', render: () => renderUnit4() },
+                { id: 'u5', title: '5. 耐奎斯定理', icon: 'alert-triangle', render: () => renderUnit5() },
+                { id: 'u6', title: '6. 聲音解碼任務', icon: 'file-code-2', render: () => renderUnit6() },
+                { id: 'u7', title: '7. Audacity 實驗', icon: 'mic', render: () => renderUnit7() },
+                { id: 'u8', title: '8. 終極測驗挑戰', icon: 'gamepad-2', render: () => renderUnit8() }
+            ],
+
+            quiz: [
+                { q: "聲音本質上是一種波動，由介質（如空氣）的振動產生。", type: "tf", a: "fg==" },
+                { q: "真實世界的聲音是一種連續的「數位訊號」。", type: "tf", a: "bA==" },
+                { q: "將聲音數位化的過程，第一步通常是「取樣」。", type: "tf", a: "fg==" },
+                { q: "「取樣」是在時間維度上進行離散化的測量。", type: "tf", a: "fg==" },
+                { q: "「量化」是將取樣得到的振幅大小，轉換為最接近的數值。", type: "tf", a: "fg==" },
+                { q: "位元深度（Bit depth）越高，產生的量化誤差（雜訊）會越大。", type: "tf", a: "bA==" },
+                { q: "CD 音質的標準取樣率是 44.1 kHz。", type: "tf", a: "fg==" },
+                { q: "根據耐奎斯定理，取樣率必須大於聲音最高頻率的 2 倍才不會失真。", type: "tf", a: "fg==" },
+                { q: "人類的耳朵大約可以聽到的最高頻率是 44100 Hz。", type: "tf", a: "bA==" },
+                { q: "如果取樣率太低，可能會產生一種叫做 Aliasing（混疊）的失真現象。", type: "tf", a: "fg==" },
+                { q: "在常見的音訊格式中，哪一個取樣率通常用在早期的電話通訊中？", type: "mc", options: ["A. 8 kHz", "B. 22 kHz", "C. 44.1 kHz", "D. 96 kHz"], a: "ew==" },
+                { q: "如果我們用 8-bit 來進行量化，可以表示出多少種不同的聲音振幅階層？", type: "mc", options: ["A. 8", "B. 128", "C. 256", "D. 65536"], a: "eQ==" },
+                { q: "CD 音質所使用的位元深度（Bit depth）是多少？", type: "mc", options: ["A. 8 bit", "B. 16 bit", "C. 24 bit", "D. 32 bit"], a: "eA==" },
+                { q: "將連續波形轉變為電腦看得懂的「010101」過程，正確的順序是？", type: "mc", options: ["A. 聲波 → 量化 → 取樣 → 數位", "B. 聲波 → 取樣 → 量化 → 數位", "C. 數位 → 取樣 → 量化 → 聲波", "D. 量化 → 聲波 → 取樣 → 數位"], a: "eA==" },
+                { q: "在 Audacity 中如果使用「變更音高」特效讓聲音變高，波形的頻率會？", type: "mc", options: ["A. 變密（頻率變高）", "B. 變疏（頻率變低）", "C. 振幅變大", "D. 振幅變小"], a: "ew==" },
+                { q: "哪一種組合可以得到最高品質（最接近原音）的數位聲音？", type: "mc", options: ["A. 取樣率 8kHz, 8-bit", "B. 取樣率 44.1kHz, 16-bit", "C. 取樣率 96kHz, 24-bit", "D. 取樣率 22kHz, 8-bit"], a: "eQ==" },
+                { q: "如果人聲的最高頻率是 10kHz，為了不失真，最低的取樣率應該設定為？", type: "mc", options: ["A. 5 kHz", "B. 10 kHz", "C. 20 kHz", "D. 40 kHz"], a: "eQ==" },
+                { q: "十六進位（HEX）中的 'FF'，等於十進位的多少？", type: "mc", options: ["A. 15", "B. 255", "C. 256", "D. 99"], a: "eA==" },
+                { q: "在聲波圖中，波形的「高低起伏幅度（Y軸）」代表聲音的什麼特性？", type: "mc", options: ["A. 音高（頻率）", "B. 音量（振幅）", "C. 音色", "D. 取樣率"], a: "eA==" },
+                { q: "數位聲音檔案之所以有時候很大，是因為它儲存了每秒鐘數萬次的哪種資料？", type: "mc", options: ["A. 文字檔", "B. 圖片像素", "C. 量化後的數值", "D. 加密金鑰"], a: "eQ==" }
+            ],
+
+            // --- 邏輯功能 ---
+            showAlert: (title, message) => {
+                document.getElementById('alert-title').innerText = title;
+                document.getElementById('alert-message').innerText = message;
+                document.getElementById('alert-modal').classList.remove('hidden');
+            },
+
+            login: () => {
+                const c = document.getElementById('login-class').value;
+                const s = document.getElementById('login-seat').value;
+                const n = document.getElementById('login-name').value;
+                
+                if(!c || !s || !n) {
+                    app.showAlert("錯誤", "請完整選擇班級、並輸入座號與姓名喔！");
+                    return;
+                }
+                
+                app.user = { class: c, seat: s, name: n };
+                document.getElementById('display-user-info').innerText = `${c}-${s} ${n}`;
+                document.getElementById('login-modal').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                
+                app.startTime = Date.now();
+                app.timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - app.startTime) / 1000);
+                    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                    const secs = String(elapsed % 60).padStart(2, '0');
+                    document.getElementById('timer').innerText = `${mins}:${secs}`;
+                }, 1000);
+
+                app.initNav();
+                app.loadUnit(0);
+                refreshIcons();
+            },
+
+            initNav: () => {
+                const nav = document.getElementById('nav-menu');
+                nav.innerHTML = '';
+                app.units.forEach((unit, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = `w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center gap-3 transition-colors ${idx === 0 ? 'tab-active' : 'tab-inactive'}`;
+                    btn.id = `nav-btn-${idx}`;
+                    btn.onclick = () => app.loadUnit(idx);
+                    btn.innerHTML = `<i data-lucide="${unit.icon}" class="w-5 h-5"></i> <span class="font-bold">${unit.title}</span>`;
+                    nav.appendChild(btn);
+                });
+            },
+
+            loadUnit: (idx) => {
+                app.units.forEach((_, i) => {
+                    const btn = document.getElementById(`nav-btn-${i}`);
+                    if(btn) {
+                        btn.classList.remove('tab-active');
+                        btn.classList.add('tab-inactive');
+                    }
+                });
+                
+                document.getElementById(`nav-btn-${idx}`).classList.remove('tab-inactive');
+                document.getElementById(`nav-btn-${idx}`).classList.add('tab-active');
+                
+                app.p5instances.forEach(p => p.remove());
+                app.p5instances = [];
+                
+                app.currentUnit = idx;
+                const content = document.getElementById('content-area');
+                content.innerHTML = `<h2 class="text-3xl font-extrabold text-blue-800 mb-6 flex items-center gap-3"><i data-lucide="${app.units[idx].icon}" class="w-8 h-8 text-orange-500"></i>${app.units[idx].title}</h2>`;
+                
+                app.units[idx].render();
+                refreshIcons();
+            },
+
+            submitData: async () => {
+                if(!GAS_URL || GAS_URL.includes("script.google.com/macros/s/AKfycbybO_K-OInoWvQzQePzI1d1n0L5_A2JqD2u4/exec")) {
+                    app.showAlert("提示", "您尚未設定真實的 GAS 網址！\n請老師將程式碼中的 GAS_URL 替換為實際的部署網址。");
+                    return;
+                }
+
+                const timeSpentStr = document.getElementById('timer').innerText;
+                const payload = {
+                    class: app.user.class,
+                    seat: app.user.seat,
+                    name: app.user.name,
+                    correct: app.quizResults.correct,
+                    wrong_nums: app.quizResults.wrongNums.join(', '), // 將錯誤題號陣列轉為字串，如 "2, 5, 8"
+                    score: app.quizScore,
+                    time_spent: timeSpentStr
+                };
+
+                try {
+                    document.getElementById('submit-btn').innerText = "上傳中...";
+                    
+                    // 使用 text/plain 避免 CORS preflight 的複雜處理
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8'
+                        }
+                    });
+                    
+                    app.showAlert("任務完成！", `🎉 你的分數是 ${app.quizScore} 分！\n資料已成功傳送至總部。`);
+                    document.getElementById('submit-btn').innerText = "已上傳";
+                    document.getElementById('submit-btn').disabled = true;
+
+                } catch (error) {
+                    console.error("Upload error:", error);
+                    app.showAlert("錯誤", "連線異常，無法上傳成績，請呼叫老師協助！");
+                    document.getElementById('submit-btn').innerText = "上傳成績";
+                }
+            }
+        };
+
+        // ==========================================
+        // 渲染每個單元的內容 (1~7 單元保留不變)
+        // ==========================================
+        function renderUnit1() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md mb-6 border-l-8 border-orange-400">
+                    <p class="text-xl mb-4 leading-relaxed">聲音其實是物體振動，推動周圍的<strong class="text-blue-600">空氣</strong>所形成的<strong class="text-orange-600">壓力波</strong>。</p>
+                    <p class="text-gray-600">當你說話、吹直笛，空氣被擠壓和拉伸，就像彈簧一樣傳遞能量，最後震動你耳朵裡的耳膜，大腦就「聽」到了聲音。</p>
+                </div>
+                <div class="relative w-full h-64 bg-blue-900 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner" id="u1-canvas"></div>
+            `;
+            const sketch = (p) => {
+                let particles = [];
+                p.setup = () => { let canvas = p.createCanvas(p.windowWidth > 800 ? 800 : p.windowWidth - 100, 250); canvas.parent('u1-canvas'); for (let i = 0; i < 200; i++) { particles.push({ x: p.random(p.width), y: p.random(p.height), baseX: 0 }); particles[i].baseX = particles[i].x; }};
+                p.draw = () => { p.background('#1e3a8a'); p.fill(255, 150); p.noStroke(); let t = p.millis() / 1000.0; for (let pt of particles) { let displacement = p.sin(pt.baseX * 0.05 - t * 5) * 20; pt.x = pt.baseX + displacement; p.circle(pt.x, pt.y, 4); } p.stroke(255, 165, 0, 150); p.strokeWeight(2); p.noFill(); p.beginShape(); for(let x=0; x<p.width; x+=5){ let y = p.height - 30 + p.sin(x * 0.05 - t * 5) * 15; p.vertex(x, y); } p.endShape(); };
+            };
+            app.p5instances.push(new p5(sketch));
+        }
+
+        function renderUnit2() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="bg-orange-50 p-6 rounded-2xl shadow border border-orange-200">
+                        <h3 class="text-2xl font-bold text-orange-600 mb-2 flex items-center gap-2"><i data-lucide="activity"></i> 類比訊號 (Analog)</h3>
+                        <p class="mb-4 text-gray-700">自然界真實的聲音。數值是<strong class="text-orange-600">連續不斷</strong>的，就像溜滑梯一樣平滑。</p>
+                        <div id="u2-analog" class="h-40 w-full bg-white rounded-xl shadow-inner relative overflow-hidden"></div>
+                    </div>
+                    <div class="bg-blue-50 p-6 rounded-2xl shadow border border-blue-200">
+                        <h3 class="text-2xl font-bold text-blue-600 mb-2 flex items-center gap-2"><i data-lucide="bar-chart-2"></i> 數位訊號 (Digital)</h3>
+                        <p class="mb-4 text-gray-700">電腦處理的聲音。數值是<strong class="text-blue-600">離散的數字 (0和1)</strong>，就像走樓梯一樣一格一格的。</p>
+                        <div id="u2-digital" class="h-40 w-full bg-white rounded-xl shadow-inner relative overflow-hidden"></div>
+                    </div>
+                </div>
+            `;
+            const drawWave = (id, type) => {
+                const box = document.getElementById(id);
+                let svg = `<svg width="100%" height="100%" viewBox="0 0 400 150" preserveAspectRatio="none">`;
+                if (type === 'analog') { svg += `<path d="M0,75 ` + Array.from({length: 40}, (_,i) => `L${i*10},${75 - Math.sin(i*0.4)*50}`).join(' ') + `" fill="none" stroke="#f97316" stroke-width="4"/>`; } else { for(let i=0; i<40; i++){ let y = 75 - Math.sin(i*0.4)*50; let steppedY = Math.round(y / 10) * 10; svg += `<rect x="${i*10}" y="${Math.min(75, steppedY)}" width="8" height="${Math.abs(75-steppedY)}" fill="#3b82f6" opacity="0.8"/>`; svg += `<circle cx="${i*10+4}" cy="${steppedY}" r="3" fill="#1e3a8a"/>`; } }
+                svg += `</svg>`;
+                box.innerHTML = svg;
+            };
+            drawWave('u2-analog', 'analog'); drawWave('u2-digital', 'digital');
+        }
+
+        function renderUnit3() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md mb-6">
+                    <h3 class="text-xl font-bold mb-2">取樣 (Sampling)：在「時間」軸上打卡</h3>
+                    <p class="text-gray-700 mb-4">電腦無法記錄連續的時間，所以必須每隔極短的時間去測量一次波的高度。一秒鐘測量幾次，就稱為<strong class="text-blue-600">取樣率 (Sample Rate)</strong>，單位是 Hz。</p>
+                    <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200">
+                        <label class="block text-lg font-bold text-blue-800 mb-2">調整取樣率：<span id="sr-value" class="text-orange-500 text-2xl">8000</span> Hz</label>
+                        <input type="range" id="sr-slider" min="1" max="3" value="2" class="w-full">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1 font-mono"><span>2000Hz (電話)</span><span>8000Hz (語音)</span><span>44100Hz (CD音質)</span></div>
+                    </div>
+                    <div id="u3-canvas" class="w-full h-64 bg-gray-900 rounded-2xl shadow-inner relative overflow-hidden flex justify-center"></div>
+                </div>
+            `;
+            const rates = [2000, 8000, 44100];
+            document.getElementById('sr-slider').oninput = function() { document.getElementById('sr-value').innerText = rates[this.value - 1]; };
+            const sketch = (p) => {
+                p.setup = () => { let canvas = p.createCanvas(p.windowWidth > 800 ? 800 : p.windowWidth - 100, 250); canvas.parent('u3-canvas'); };
+                p.draw = () => { p.background('#111827'); let rateIdx = parseInt(document.getElementById('sr-slider').value) - 1; let density = p.map(rateIdx, 0, 2, 20, 2); p.stroke(255, 100); p.strokeWeight(2); p.noFill(); p.beginShape(); for(let x=0; x<p.width; x++){ let y = p.height/2 + p.sin(x*0.02 - p.millis()/1000)*80; p.vertex(x, y); } p.endShape(); p.stroke('#3b82f6'); p.fill('#60a5fa'); for(let x=0; x<p.width; x+=density){ let y = p.height/2 + p.sin(x*0.02 - p.millis()/1000)*80; p.strokeWeight(1); p.line(x, p.height/2, x, y); p.noStroke(); p.circle(x, y, rateIdx===2 ? 2 : 6); } p.stroke(255, 50); p.line(0, p.height/2, p.width, p.height/2); };
+            };
+            app.p5instances.push(new p5(sketch));
+        }
+
+        function renderUnit4() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md mb-6">
+                    <h3 class="text-xl font-bold mb-2">量化 (Quantization)：在「振幅」軸上四捨五入</h3>
+                    <p class="text-gray-700 mb-4">取樣完得到了高度(振幅)，但電腦只能存二進位數字。我們用幾種不同的「階梯」來逼近原本的高度，這稱為<strong class="text-blue-600">位元深度 (Bit Depth)</strong>。階梯越少，誤差越大(量化雜訊)。</p>
+                    <div class="mb-6 bg-orange-50 p-4 rounded-xl border border-orange-200">
+                        <label class="block text-lg font-bold text-orange-800 mb-2">調整位元深度：<span id="bit-value" class="text-blue-600 text-2xl">8</span> Bit</label>
+                        <input type="range" id="bit-slider" min="1" max="4" value="2" class="w-full">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1 font-mono"><span>2-bit (4階)</span><span>4-bit (16階)</span><span>8-bit (256階)</span><span>16-bit (極細)</span></div>
+                    </div>
+                    <div id="u4-canvas" class="w-full h-64 bg-gray-900 rounded-2xl shadow-inner relative overflow-hidden flex justify-center"></div>
+                </div>
+            `;
+            const bits = [2, 4, 8, 16]; const stepsMap = [4, 16, 256, 65536];
+            document.getElementById('bit-slider').oninput = function() { document.getElementById('bit-value').innerText = bits[this.value - 1]; };
+            const sketch = (p) => {
+                p.setup = () => { let canvas = p.createCanvas(p.windowWidth > 800 ? 800 : p.windowWidth - 100, 250); canvas.parent('u4-canvas'); };
+                p.draw = () => { p.background('#111827'); let bitIdx = parseInt(document.getElementById('bit-slider').value) - 1; let steps = stepsMap[bitIdx]; let stepSize = p.height / steps; if(bitIdx === 3) stepSize = 1; p.stroke(255, 60); p.strokeWeight(2); p.noFill(); p.beginShape(); for(let x=0; x<p.width; x++){ let y = p.height/2 + p.sin(x*0.015 - p.millis()/1500)*100; p.vertex(x, y); } p.endShape(); p.stroke('#f97316'); p.strokeWeight(3); p.noFill(); p.beginShape(); for(let x=0; x<p.width; x+=5){ let trueY = p.height/2 + p.sin(x*0.015 - p.millis()/1500)*100; let quantizedY = p.round(trueY / stepSize) * stepSize; p.vertex(x, quantizedY); } p.endShape(); if (steps <= 16) { p.stroke(255, 20); p.strokeWeight(1); for(let i=0; i<=steps; i++) { let y = i * stepSize; p.line(0, y, p.width, y); } } };
+            };
+            app.p5instances.push(new p5(sketch));
+        }
+
+        function renderUnit5() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-purple-50 p-6 rounded-2xl shadow-md mb-6 border border-purple-200">
+                    <h3 class="text-2xl font-bold text-purple-800 mb-4 flex items-center gap-2"><i data-lucide="alert-triangle"></i> 耐奎斯定理 (Nyquist Theorem)</h3>
+                    <p class="text-lg mb-4">這是一個數位音訊的黃金定律：<br>
+                    <strong class="bg-yellow-200 text-yellow-900 px-2 py-1 rounded">取樣頻率 ≧ 最高聲音頻率的 2 倍</strong></p>
+                    <div class="grid md:grid-cols-2 gap-4 mt-6">
+                        <div class="bg-white p-4 rounded-xl shadow-sm">
+                            <h4 class="font-bold text-green-600 mb-2">✅ 正確示範：CD 音質</h4>
+                            <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                                <li>人耳最高頻率：約 <strong>20,000 Hz</strong></li>
+                                <li>取樣率至少要：20,000 × 2 = <strong>40,000 Hz</strong></li>
+                                <li>CD 定為 <strong>44,100 Hz</strong>！</li>
+                            </ul>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-red-200">
+                            <h4 class="font-bold text-red-600 mb-2">❌ 錯誤結果：混疊 (Aliasing)</h4>
+                            <p class="text-gray-700 text-sm">如果取樣速度比波動變化還慢，連點連起來後，會畫出一個「頻率較低、完全錯誤」的波！</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderUnit6() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h3 class="text-2xl font-bold text-blue-800 mb-4 flex items-center gap-2"><i data-lucide="file-code-2"></i> 十六進位(HEX) 聲音解碼任務</h3>
+                    <p class="mb-4 text-gray-700">電腦底層儲存聲音檔案其實是一連串 16 進位代碼。請嘗試把以下神祕代碼還原成聲音！</p>
+                    <div class="bg-gray-800 rounded-xl p-4 mb-4">
+                        <textarea id="hex-input" class="w-full h-32 bg-gray-900 text-green-400 font-mono text-sm p-3 border-none outline-none resize-none rounded-lg" placeholder="請在此貼上 HEX 代碼..."></textarea>
+                    </div>
+                    <div class="flex gap-4">
+                        <button onclick="app.loadSampleHex()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition">載入測試樣本</button>
+                        <button onclick="app.decodeHex()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-lg transition"><i data-lucide="play"></i> 解碼並播放</button>
+                    </div>
+                    <div id="audio-container" class="mt-4 hidden text-center p-4 bg-green-50 rounded-xl border border-green-200">
+                        <p class="text-green-800 font-bold mb-2">✅ 解碼成功！</p>
+                        <audio id="decoded-audio" controls class="mx-auto"></audio>
+                    </div>
+                </div>
+            `;
+            app.loadSampleHex = () => {
+                document.getElementById('hex-input').value = "524946462400000057415645666d74201000000001000100401f0000401f0000010008006461746100000000" + 
+                               "8090a0b0c0d0e0f0ffe0d0c0b0a090807060504030201000102030405060708090a0b0c0d0e0f0ffe0d0c0b0a09080" +
+                               "8090a0b0c0d0e0f0ffe0d0c0b0a090807060504030201000102030405060708090a0b0c0d0e0f0ffe0d0c0b0a09080";
+            };
+            app.decodeHex = () => {
+                const hexStr = document.getElementById('hex-input').value.replace(/\s/g, '');
+                if(hexStr.length === 0 || hexStr.length % 2 !== 0) return app.showAlert("錯誤", "無效的 HEX 字串。");
+                try {
+                    const bytes = new Uint8Array(hexStr.length / 2);
+                    for (let i = 0; i < hexStr.length; i += 2) bytes[i / 2] = parseInt(hexStr.substr(i, 2), 16);
+                    const audioEl = document.getElementById('decoded-audio');
+                    audioEl.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
+                    document.getElementById('audio-container').classList.remove('hidden');
+                    audioEl.play().catch(e => console.log(e));
+                } catch(e) { app.showAlert("失敗", "解碼失敗"); }
+            };
+        }
+
+        function renderUnit7() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h3 class="text-2xl font-bold text-blue-800 mb-4 flex items-center gap-2"><i data-lucide="headphones"></i> Audacity 實驗室</h3>
+                    <div class="space-y-6 mt-6">
+                        <div class="flex gap-4 items-start bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <div class="bg-blue-100 p-3 rounded-full text-blue-600"><i data-lucide="mic"></i></div>
+                            <div>
+                                <h4 class="font-bold text-lg">任務 1：觀察波形</h4>
+                                <p class="text-gray-600 mt-1">「吹直笛」產生的是規則波形。而「拍手」或「說話」則是複雜波形。</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 items-start bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <div class="bg-orange-100 p-3 rounded-full text-orange-600"><i data-lucide="fast-forward"></i></div>
+                            <div>
+                                <h4 class="font-bold text-lg">任務 2：變更音高</h4>
+                                <p class="text-gray-600 mt-1">聲音變高時，波形在X軸上會被<strong class="text-orange-600">壓縮得更密</strong>，代表<strong class="text-blue-600">頻率變高了</strong>！</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderUnit8() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <div class="text-center mb-8">
+                        <h3 class="text-3xl font-extrabold text-orange-600 mb-2">🔥 終極測驗挑戰 🔥</h3>
+                        <p class="text-gray-600">總共 20 題，驗收你的數位聲音知識！</p>
+                    </div>
+                    <div id="quiz-container" class="space-y-8"></div>
+                    <div class="mt-10 text-center">
+                        <button onclick="app.calculateScore()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">提交答案算分</button>
+                    </div>
+                    
+                    <div id="quiz-result" class="hidden mt-8 p-8 bg-green-50 rounded-2xl border-2 border-green-500 text-center">
+                        <h2 class="text-4xl font-black text-green-600 mb-4" id="score-display">100 分</h2>
+                        <p class="text-lg text-gray-700 mb-6" id="score-detail">答對 20 題，答錯 0 題</p>
+                        <button id="submit-btn" onclick="app.submitData()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl text-lg shadow-md flex items-center justify-center gap-2 mx-auto"><i data-lucide="cloud-upload"></i> 上傳成績至資料庫</button>
+                    </div>
+                </div>
+            `;
+
+            const qc = document.getElementById('quiz-container');
+            app.quiz.forEach((q, idx) => {
+                let html = `<div class="p-5 bg-gray-50 rounded-xl border border-gray-200 quiz-question" id="q-block-${idx}">
+                    <p class="font-bold text-lg mb-4 text-gray-800"><span class="text-blue-500 mr-2">Q${idx+1}.</span>${q.q}</p>`;
+                
+                if (q.type === 'tf') {
+                    html += `
+                        <div class="flex gap-4">
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="q${idx}" value="T" class="hidden peer">
+                                <div class="p-3 text-center rounded-lg border-2 border-gray-300 peer-checked:border-blue-500 peer-checked:bg-blue-100 peer-checked:text-blue-700 font-bold transition">⭕ 是 (True)</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer">
+                                <input type="radio" name="q${idx}" value="F" class="hidden peer">
+                                <div class="p-3 text-center rounded-lg border-2 border-gray-300 peer-checked:border-red-500 peer-checked:bg-red-100 peer-checked:text-red-700 font-bold transition">❌ 否 (False)</div>
+                            </label>
+                        </div>
+                    `;
+                } else if (q.type === 'mc') {
+                    html += `<div class="grid md:grid-cols-2 gap-3">`;
+                    q.options.forEach((opt) => {
+                        const val = opt.charAt(0);
+                        html += `
+                            <label class="cursor-pointer">
+                                <input type="radio" name="q${idx}" value="${val}" class="hidden peer">
+                                <div class="p-3 rounded-lg border-2 border-gray-300 peer-checked:border-orange-500 peer-checked:bg-orange-50 peer-checked:text-orange-800 transition hover:bg-gray-100">${opt}</div>
+                            </label>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+                html += `</div>`;
+                qc.innerHTML += html;
+            });
+
+            // --- 修改計分邏輯：記錄答錯題號 ---
+            app.calculateScore = () => {
+                let correct = 0;
+                let answered = 0;
+                let wrongNums = []; // 儲存答錯題號的陣列
+                
+                app.quiz.forEach((q, idx) => {
+                    const selected = document.querySelector(`input[name="q${idx}"]:checked`);
+                    const block = document.getElementById(`q-block-${idx}`);
+                    
+                    block.classList.remove('border-green-500', 'bg-green-50', 'border-red-500', 'bg-red-50');
+                    
+                    if (selected) {
+                        answered++;
+                        const correctAns = Secret.dec(q.a); 
+                        
+                        if (selected.value === correctAns) {
+                            correct++;
+                            block.classList.add('border-green-500', 'bg-green-50');
+                        } else {
+                            wrongNums.push(idx + 1); // 記錄題號 (idx 從 0 開始，所以 +1)
+                            block.classList.add('border-red-500', 'bg-red-50');
+                        }
+                    }
+                });
+
+                if (answered < app.quiz.length) {
+                    app.showAlert("提示", `你還有 ${app.quiz.length - answered} 題沒寫完喔！`);
+                    return;
+                }
+
+                clearInterval(app.timerInterval);
+                
+                app.quizResults.correct = correct;
+                app.quizResults.wrongNums = wrongNums; // 儲存到全域變數
+                app.quizScore = Math.round((correct / app.quiz.length) * 100);
+
+                document.getElementById('score-display').innerText = `${app.quizScore} 分`;
+                
+                // 顯示答錯的題號 (若全對則顯示無)
+                let wrongText = wrongNums.length > 0 ? ` (錯誤題號: ${wrongNums.join(', ')})` : '';
+                document.getElementById('score-detail').innerText = `答對 ${correct} 題，答錯 ${wrongNums.length} 題${wrongText}\n作答時間：${document.getElementById('timer').innerText}`;
+                
+                document.getElementById('quiz-result').classList.remove('hidden');
+                document.getElementById('content-area').scrollTo(0, document.getElementById('content-area').scrollHeight);
+            };
+        }
+
+        window.onload = () => {
+            refreshIcons();
+        };
+    </script>
+</body>
+</html>
