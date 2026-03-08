@@ -29,7 +29,7 @@
 
     <!-- Login Modal -->
     <div id="login-modal" class="fixed inset-0 bg-blue-900 bg-opacity-80 flex items-center justify-center z-50 transition-opacity duration-300">
-        <div class="glass-panel p-10 rounded-3xl shadow-2xl max-w-md w-full text-center transform scale-100 transition-transform duration-300">
+        <div class="glass-panel p-10 rounded-3xl shadow-2xl max-w-md w-full text-center transform scale-100 transition-transform duration-300 relative overflow-hidden">
             <div class="flex justify-center mb-4 text-blue-500">
                 <i data-lucide="audio-lines" class="w-20 h-20"></i>
             </div>
@@ -37,7 +37,6 @@
             <p class="text-gray-500 mb-6">歡迎來到互動科學館！請輸入你的特務代號登入。</p>
             
             <div class="space-y-4">
-                <!-- 修改為下拉選單 -->
                 <select id="login-class" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 focus:border-blue-500 outline-none text-lg bg-white">
                     <option value="" disabled selected>請選擇班級</option>
                     <option value="901">901</option>
@@ -88,11 +87,10 @@
 
     <script>
         // ==========================================
-        // 🌟 教師設定區：請將下方的網址替換為您的 Google Apps Script 部署網址
+        // 🌟 教師設定區：GAS URL
         // ==========================================
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbywCxiV0Cc2JVAS1_k3RtAB8EVNqfQKDmr-krM-RRPHGKuIVt1HW3g1OVtSCJ6Nsg5fnA/exec"; // <-- 貼上您的網址
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbywCxiV0Cc2JVAS1_k3RtAB8EVNqfQKDmr-krM-RRPHGKuIVt1HW3g1OVtSCJ6Nsg5fnA/exec"; 
 
-        // 簡易加密工具 (保護正確答案，避免學生直接看程式碼作弊)
         const Secret = {
             key: 42,
             dec: (encoded) => Array.from(atob(encoded)).map(c => String.fromCharCode(c.charCodeAt(0) ^ Secret.key)).join('')
@@ -110,10 +108,11 @@
             currentUnit: 0,
             p5instances: [],
             quizScore: 0,
-            quizResults: { correct: 0, wrongNums: [] }, // 改為記錄錯誤題號陣列
+            quizResults: { correct: 0, wrongNums: [] }, 
             
             // --- 課程與測驗資料 ---
             units: [
+                { id: 'u0', title: '0. 課程首頁', icon: 'home', render: () => renderUnit0() },
                 { id: 'u1', title: '1. 聲音是什麼？', icon: 'volume-2', render: () => renderUnit1() },
                 { id: 'u2', title: '2. 類比 vs 數位', icon: 'arrow-right-left', render: () => renderUnit2() },
                 { id: 'u3', title: '3. 取樣 (Sampling)', icon: 'activity', render: () => renderUnit3() },
@@ -178,7 +177,7 @@
                 }, 1000);
 
                 app.initNav();
-                app.loadUnit(0);
+                app.loadUnit(0); // 載入第一關 (Index 0)
                 refreshIcons();
             },
 
@@ -212,10 +211,13 @@
                 
                 app.currentUnit = idx;
                 const content = document.getElementById('content-area');
+                
                 content.innerHTML = `<h2 class="text-3xl font-extrabold text-blue-800 mb-6 flex items-center gap-3"><i data-lucide="${app.units[idx].icon}" class="w-8 h-8 text-orange-500"></i>${app.units[idx].title}</h2>`;
                 
                 app.units[idx].render();
                 refreshIcons();
+                // 每次切換單元時自動捲動至頂部
+                document.getElementById('content-area').parentElement.scrollTo(0, 0);
             },
 
             submitData: async () => {
@@ -230,7 +232,7 @@
                     seat: app.user.seat,
                     name: app.user.name,
                     correct: app.quizResults.correct,
-                    wrong_nums: app.quizResults.wrongNums.join(', '), // 將錯誤題號陣列轉為字串，如 "2, 5, 8"
+                    wrong_nums: app.quizResults.wrongNums.join(', '), 
                     score: app.quizScore,
                     time_spent: timeSpentStr
                 };
@@ -238,7 +240,6 @@
                 try {
                     document.getElementById('submit-btn').innerText = "上傳中...";
                     
-                    // 使用 text/plain 避免 CORS preflight 的複雜處理
                     await fetch(GAS_URL, {
                         method: 'POST',
                         body: JSON.stringify(payload),
@@ -260,8 +261,36 @@
         };
 
         // ==========================================
-        // 渲染每個單元的內容 (1~7 單元保留不變)
+        // 渲染每個單元的內容
         // ==========================================
+
+        function renderUnit0() {
+            const container = document.getElementById('content-area');
+            container.innerHTML += `
+                <div class="space-y-8">
+                    <!-- 簡報區塊 -->
+                    <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-blue-500">
+                        <h3 class="text-2xl font-bold text-blue-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="presentation"></i> 課程教學簡報
+                        </h3>
+                        <div class="relative w-full aspect-video rounded-xl overflow-hidden shadow-inner bg-gray-100">
+                            <iframe src="https://docs.google.com/presentation/d/1R5bxB8FdnzlKWri956fBcqZMN4pUnwkPGZ-gaYB0DGo/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="100%" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true" class="absolute inset-0 w-full h-full"></iframe>
+                        </div>
+                    </div>
+
+                    <!-- 作答紀錄區塊 -->
+                    <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-green-500">
+                        <h3 class="text-2xl font-bold text-green-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="table"></i> 班級作答紀錄
+                        </h3>
+                        <div class="relative w-full h-[500px] rounded-xl overflow-hidden shadow-inner border border-gray-200 bg-gray-50">
+                            <iframe src="https://docs.google.com/spreadsheets/d/1YrmVPo1DqXS1bscwmDZYcEiMYCCppsKdJGW-e4efM-g/htmlembed?widget=true&headers=false" frameborder="0" width="100%" height="100%" class="absolute inset-0 w-full h-full"></iframe>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderUnit1() {
             const container = document.getElementById('content-area');
             container.innerHTML += `
@@ -495,11 +524,10 @@
                 qc.innerHTML += html;
             });
 
-            // --- 修改計分邏輯：記錄答錯題號 ---
             app.calculateScore = () => {
                 let correct = 0;
                 let answered = 0;
-                let wrongNums = []; // 儲存答錯題號的陣列
+                let wrongNums = []; 
                 
                 app.quiz.forEach((q, idx) => {
                     const selected = document.querySelector(`input[name="q${idx}"]:checked`);
@@ -515,7 +543,7 @@
                             correct++;
                             block.classList.add('border-green-500', 'bg-green-50');
                         } else {
-                            wrongNums.push(idx + 1); // 記錄題號 (idx 從 0 開始，所以 +1)
+                            wrongNums.push(idx + 1); 
                             block.classList.add('border-red-500', 'bg-red-50');
                         }
                     }
@@ -529,12 +557,11 @@
                 clearInterval(app.timerInterval);
                 
                 app.quizResults.correct = correct;
-                app.quizResults.wrongNums = wrongNums; // 儲存到全域變數
+                app.quizResults.wrongNums = wrongNums; 
                 app.quizScore = Math.round((correct / app.quiz.length) * 100);
 
                 document.getElementById('score-display').innerText = `${app.quizScore} 分`;
                 
-                // 顯示答錯的題號 (若全對則顯示無)
                 let wrongText = wrongNums.length > 0 ? ` (錯誤題號: ${wrongNums.join(', ')})` : '';
                 document.getElementById('score-detail').innerText = `答對 ${correct} 題，答錯 ${wrongNums.length} 題${wrongText}\n作答時間：${document.getElementById('timer').innerText}`;
                 
