@@ -30,17 +30,14 @@
             <h1 class="text-3xl font-bold text-gray-800 mb-2">聲音數位化探險</h1>
             <p class="text-gray-500 mb-6">歡迎來到互動科學館!請輸入你的特務代號登入。</p>
             <div class="space-y-4">
-                <select id="login-class" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 outline-none bg-white">
+                <select id="login-class" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 outline-none bg-white text-lg">
                     <option value="" disabled selected>請選擇班級</option>
-                    <option value="901">901</option>
-                    <option value="902">902</option>
-                    <option value="903">903</option>
-                    <option value="904">904</option>
-                    <option value="905">905</option>
-                    <option value="906">906</option>
+                    <option value="901">901</option><option value="902">902</option>
+                    <option value="903">903</option><option value="904">904</option>
+                    <option value="905">905</option><option value="906">906</option>
                 </select>
-                <input type="number" id="login-seat" placeholder="座號(例: 5)" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 outline-none">
-                <input type="text" id="login-name" placeholder="姓名" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 outline-none">
+                <input type="number" id="login-seat" placeholder="座號(例: 5)" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 outline-none text-lg">
+                <input type="text" id="login-name" placeholder="姓名" class="w-full px-4 py-3 rounded-xl border-2 border-blue-200 outline-none text-lg">
                 <button onclick="app.login()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl text-xl shadow-lg transform transition active:scale-95">開始探險</button>
             </div>
         </div>
@@ -63,12 +60,23 @@
         </div>
     </div>
 
+    <div id="alert-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <h3 class="text-xl font-bold mb-4" id="alert-title">提示</h3>
+            <p class="mb-6 text-gray-600" id="alert-message"></p>
+            <button onclick="document.getElementById('alert-modal').classList.add('hidden')" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-bold">確定</button>
+        </div>
+    </div>
+
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbywCxiV0Cc2JVAS1_k3RtAB8EVNqfQKDmr-krM-RRPHGKulVt1HW3g1OVtSCJ6Nsg5fnA/exec";
         
-        const refreshIcons = () => {
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+        const Secret = {
+            key: 42,
+            dec: (encoded) => Array.from(atob(encoded)).map(c => String.fromCharCode(c.charCodeAt(0) ^ Secret.key)).join("")
         };
+
+        const refreshIcons = () => { if (typeof lucide !== 'undefined') lucide.createIcons(); };
 
         const app = {
             user: { class: '', seat: '', name: '' },
@@ -78,32 +86,53 @@
             p5instances: [],
             quizScore: 0,
             quizResults: { correct: 0, wrongNums: [] },
+            hexBonus: false,
             units: [
                 { id: 'u0', title: '0. 課程首頁', icon: 'home', render: () => renderUnit0() },
                 { id: 'u1', title: '1. 聲音是什麼?', icon: 'volume-2', render: () => renderUnit1() },
                 { id: 'u2', title: '2. 類比 vs 數位', icon: 'arrow-right-left', render: () => renderUnit2() },
                 { id: 'u3', title: '3. 取樣 (Sampling)', icon: 'activity', render: () => renderUnit3() },
                 { id: 'u4', title: '4. 量化(Quantization)', icon: 'bar-chart-3', render: () => renderUnit4() },
+                { id: 'u5', title: '5. 耐奎斯定理', icon: 'alert-triangle', render: () => renderUnit5() },
                 { id: 'u6', title: '6. 聲音解碼任務', icon: 'file-code-2', render: () => renderUnit6() },
+                { id: 'u7', title: '7. Audacity 實驗', icon: 'mic', render: () => renderUnit7() },
                 { id: 'u8', title: '8. 終極測驗挑戰', icon: 'gamepad-2', render: () => renderUnit8() }
             ],
+            // 測驗題目 (10是非 + 10選擇)
             quiz: [
                 {q:"聲音本質上是一種波動,由介質(如空氣)的振動產生。", type: "tf", a: "fg==" },
                 {q:"真實世界的聲音是一種連續的「數位訊號」。", type: "tf", a: "bA==" },
                 {q:"將聲音數位化的過程,第一步通常是「取樣」。", type: "tf", a: "fg==" },
-                {q:"CD音質的標準取樣率是44.1 kHz。", type: "tf", a: "fg==" }
+                {q:"「取樣」是在時間維度上進行離散化的測量。", type: "tf", a: "fg==" },
+                {q:"「量化」是將取樣得到的振幅大小,轉換為最接近的數值。", type: "tf", a: "fg==" },
+                {q:"位元深度(Bit depth)越高,產生的量化誤差(雜訊)會越大。", type: "tf", a: "bA==" },
+                {q:"CD音質的標準取樣率是44.1 kHz。", type: "tf", a: "fg==" },
+                {q:"根據耐奎斯定理,取樣率必須大於聲音最高頻率的2倍才不會失真。", type: "tf", a: "fg==" },
+                {q:"人類的耳朵大約可以聽到的最高頻率是44100 Hz。", type: "tf", a: "bA==" },
+                {q:"如果取樣率太低,可能會產生一種叫做 Aliasing(混疊)的失真現象。", type: "tf", a: "fg==" },
+                {q:"在常見的音訊格式中,哪一個取樣率通常用在早期的電話通訊中?", type: "mc", options: ["A. 8 kHz", "B. 22 kHz", "C. 44.1 kHz", "D. 96 kHz"], a: "ew==" },
+                {q:"如果我們用8-bit 來進行量化,可以表示出多少種不同的聲音振幅階層?", type: "mc", options: ["A. 8", "B. 128", "C. 256", "D. 65536"], a: "eQ==" },
+                {q:"CD音質所使用的位元深度(Bit depth)是多少?", type: "mc", options: ["A. 8 bit", "B. 16 bit", "C. 24 bit", "D. 32 bit"], a: "eA==" },
+                {q:"將連續波形轉變為電腦看得懂的「010101」過程,正確的順序是?", type: "mc", options: ["A. 聲波→量化→取樣", "B. 聲波→取樣→量化", "C. 數位→取樣→量化", "D. 量化→聲波→取樣"], a: "eA==" },
+                {q:"在 Audacity 中如果使用「變更音高」特效讓聲音變高,波形的頻率會?", type: "mc", options: ["A. 變密(頻率變高)", "B. 變疏(頻率變低)", "C. 振幅變大", "D. 振幅變小"], a: "ew==" },
+                {q:"哪一種組合可以得到最高品質(最接近原音)的數位聲音?", type: "mc", options: ["A. 8kHz, 8-bit", "B. 44.1kHz, 16-bit", "C. 96kHz, 24-bit", "D. 22kHz, 8-bit"], a: "eQ==" },
+                {q:"如果人聲的最高頻率是10kHz,為了不失真,最低取樣率應為?", type: "mc", options: ["A. 5 kHz", "B. 10 kHz", "C. 20 kHz", "D. 40 kHz"], a: "eQ==" },
+                {q:"十六進位(HEX)中的'FF',等於十進位的多少?", type: "mc", options: ["A. 15", "B. 255", "C. 256", "D. 99"], a: "eA==" },
+                {q:"在聲波圖中,波形的「高低起伏幅度(Y軸)」代表聲音的什麼特性?", type: "mc", options: ["A. 音高", "B. 音量(振幅)", "C. 音色", "D. 取樣率"], a: "eA==" },
+                {q:"數位聲音檔案之所以很大,是因為它儲存了每秒鐘數萬次的哪種資料?", type: "mc", options: ["A. 文字檔", "B. 圖片像素", "C. 量化後的數值", "D. 加密金鑰"], a: "eQ==" }
             ],
+
             showAlert: (title, message) => {
-                alert(`${title}\n${message}`);
+                document.getElementById('alert-title').innerText = title;
+                document.getElementById('alert-message').innerText = message;
+                document.getElementById('alert-modal').classList.remove('hidden');
             },
+
             login: () => {
                 const c = document.getElementById('login-class').value;
                 const s = document.getElementById('login-seat').value;
                 const n = document.getElementById('login-name').value;
-                if(!c || !s || !n) {
-                    app.showAlert("錯誤", "請完整選擇班級、並輸入座號與姓名喔!");
-                    return;
-                }
+                if(!c || !s || !n) { app.showAlert("錯誤", "請填寫完整資訊!"); return; }
                 app.user = { class: c, seat: s, name: n };
                 document.getElementById('display-user-info').innerText = `${c}-${s} ${n}`;
                 document.getElementById('login-modal').classList.add('hidden');
@@ -117,8 +146,8 @@
                 }, 1000);
                 app.initNav();
                 app.loadUnit(0);
-                refreshIcons();
             },
+
             initNav: () => {
                 const nav = document.getElementById('nav-menu');
                 nav.innerHTML = "";
@@ -131,14 +160,12 @@
                     nav.appendChild(btn);
                 });
             },
+
             loadUnit: (idx) => {
                 app.units.forEach((_, i) => {
-                    const btn = document.getElementById(`nav-btn-${i}`);
-                    if(btn) btn.className = 'w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center gap-3 transition-colors tab-inactive';
+                    const b = document.getElementById(`nav-btn-${i}`);
+                    if(b) b.className = (i === idx) ? 'w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center gap-3 transition-colors tab-active' : 'w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center gap-3 transition-colors tab-inactive';
                 });
-                const activeBtn = document.getElementById(`nav-btn-${idx}`);
-                if(activeBtn) activeBtn.className = 'w-full text-left px-4 py-3 rounded-xl mb-2 flex items-center gap-3 transition-colors tab-active';
-                
                 app.p5instances.forEach(p => p.remove());
                 app.p5instances = [];
                 app.currentUnit = idx;
@@ -146,139 +173,172 @@
                 content.innerHTML = `<h2 class="text-3xl font-extrabold text-blue-800 mb-6 flex items-center gap-3"><i data-lucide="${app.units[idx].icon}" class="w-8 h-8 text-orange-500"></i>${app.units[idx].title}</h2>`;
                 app.units[idx].render();
                 refreshIcons();
-                document.getElementById('content-area').parentElement.scrollTo(0, 0);
+                content.parentElement.scrollTo(0, 0);
             },
+
+            calculateScore: () => {
+                let correct = 0;
+                let wrongNums = [];
+                app.quiz.forEach((q, idx) => {
+                    const sel = document.querySelector(`input[name="q${idx}"]:checked`);
+                    const ansStr = Secret.dec(q.a); // 解出正確的 T, F, A, B, C, D
+                    if (sel && sel.value === ansStr) {
+                        correct++;
+                    } else {
+                        wrongNums.push(idx + 1);
+                    }
+                });
+                app.quizResults = { correct, wrongNums };
+                app.quizScore = Math.round((correct / app.quiz.length) * 100);
+                document.getElementById('score-display').innerText = `${app.quizScore} 分`;
+                const wrongText = wrongNums.length > 0 ? ` (錯誤題號: ${wrongNums.join(', ')})` : '';
+                document.getElementById('score-detail').innerText = `答對 ${correct} 題，答錯 ${wrongNums.length} 題${wrongText}`;
+                document.getElementById('quiz-result').classList.remove('hidden');
+            },
+
             submitData: async () => {
-                const payload = { ...app.user, score: app.quizScore, time: document.getElementById('timer').innerText };
-                app.showAlert("完成", "成績已嘗試上傳！");
+                const payload = {
+                    ...app.user,
+                    score: app.quizScore,
+                    bonus: app.hexBonus ? "Yes" : "No",
+                    time: document.getElementById('timer').innerText
+                };
+                try {
+                    await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' });
+                    app.showAlert("上傳成功", "特務，你的成績已存入資料庫！");
+                } catch(e) { app.showAlert("連線錯誤", "無法傳送成績。"); }
             }
         };
 
+        // --- 各單元渲染函數 ---
         function renderUnit0() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `
+            document.getElementById('content-area').innerHTML += `
                 <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-blue-500">
-                    <h3 class="text-2xl font-bold mb-4">課程教學簡報</h3>
-                    <div class="aspect-video bg-gray-100 rounded-xl overflow-hidden">
-                        <iframe src="https://docs.google.com/presentation/d/1R5bxB8FdnzlKWri956fBcqZMN4pUnwkPGZ-gaYB0DGo/embed" width="100%" height="100%"></iframe>
-                    </div>
+                    <iframe src="https://docs.google.com/presentation/d/1R5bxB8FdnzlKWri956fBcqZMN4pUnwkPGZ-gaYB0DGo/embed" width="100%" height="500px"></iframe>
                 </div>`;
         }
 
         function renderUnit1() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `<div class="bg-white p-6 rounded-2xl shadow-md mb-6 border-l-8 border-orange-400">
-                <p class="text-xl">聲音其實是物體振動產生的<strong class="text-orange-600">壓力波</strong>。</p>
-                <div id="u1-canvas" class="mt-4 h-64 bg-blue-900 rounded-xl"></div>
-            </div>`;
-            const sketch = (p) => {
-                p.setup = () => { p.createCanvas(p.windowWidth > 800 ? 800 : p.windowWidth - 100, 250).parent('u1-canvas'); };
+            const area = document.getElementById('content-area');
+            area.innerHTML += `<div class="bg-white p-6 rounded-2xl shadow-md mb-6 border-l-8 border-orange-400"><p class="text-xl">聲音是物體振動產生的<strong class="text-orange-600">壓力波</strong>。</p></div><div id="u1-canvas" class="h-64 bg-blue-900 rounded-xl"></div>`;
+            const sk = (p) => {
+                p.setup = () => p.createCanvas(p.width, 250).parent('u1-canvas');
                 p.draw = () => {
-                    p.background('#1e3a8a');
-                    p.stroke(255);
-                    p.noFill();
-                    p.beginShape();
-                    for(let x=0; x<p.width; x++) {
-                        let y = p.height/2 + p.sin(x*0.05 + p.millis()/200)*30;
-                        p.vertex(x, y);
-                    }
+                    p.background('#1e3a8a'); p.stroke(255); p.noFill(); p.beginShape();
+                    for(let x=0; x<p.width; x++) p.vertex(x, 125 + p.sin(x*0.05 + p.millis()/200)*30);
                     p.endShape();
                 };
             };
-            app.p5instances.push(new p5(sketch));
+            app.p5instances.push(new p5(sk, 'u1-canvas'));
         }
 
         function renderUnit2() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `
+            document.getElementById('content-area').innerHTML += `
                 <div class="grid md:grid-cols-2 gap-8">
-                    <div class="bg-orange-50 p-6 rounded-2xl border border-orange-200">
-                        <h3 class="text-2xl font-bold text-orange-600">類比訊號</h3>
-                        <p>連續不斷的波形。</p>
-                    </div>
-                    <div class="bg-blue-50 p-6 rounded-2xl border border-blue-200">
-                        <h3 class="text-2xl font-bold text-blue-600">數位訊號</h3>
-                        <p>離散的 0 與 1。</p>
-                    </div>
+                    <div class="bg-orange-50 p-6 rounded-2xl border border-orange-200"><h3 class="text-2xl font-bold text-orange-600">類比：連續的波形</h3></div>
+                    <div class="bg-blue-50 p-6 rounded-2xl border border-blue-200"><h3 class="text-2xl font-bold text-blue-600">數位：離散的 0 與 1</h3></div>
                 </div>`;
         }
 
         function renderUnit3() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `<div class="bg-white p-6 rounded-2xl shadow-md">
-                <label class="block font-bold">調整取樣率 (Sample Rate)</label>
+            const area = document.getElementById('content-area');
+            area.innerHTML += `<div class="bg-white p-6 rounded-2xl shadow-md">
+                <label class="block font-bold mb-2">取樣率 (Sample Rate)</label>
                 <input type="range" id="sr-slider" min="2000" max="44100" step="1000" value="8000" class="w-full">
                 <div id="u3-canvas" class="mt-4 h-64 bg-gray-900 rounded-xl"></div>
             </div>`;
         }
 
         function renderUnit4() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `<div class="bg-white p-6 rounded-2xl shadow-md">
-                <label class="block font-bold">調整位元深度 (Bit Depth)</label>
+            const area = document.getElementById('content-area');
+            area.innerHTML += `<div class="bg-white p-6 rounded-2xl shadow-md">
+                <label class="block font-bold mb-2">位元深度 (Bit Depth)</label>
                 <input type="range" id="bit-slider" min="2" max="16" step="2" value="8" class="w-full">
                 <div id="u4-canvas" class="mt-4 h-64 bg-gray-900 rounded-xl"></div>
             </div>`;
         }
 
-        function renderUnit6() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `
-                <div class="bg-white p-6 rounded-2xl shadow-md">
-                    <h3 class="text-2xl font-bold text-blue-800 mb-4">神祕的十六進位任務</h3>
-                    <p class="mb-4">請複製下方內容至 HexEd.it 解碼，輸入解碼後的祝福：</p>
-                    <textarea readonly class="w-full h-24 bg-gray-900 text-green-400 p-3 rounded-lg mb-4">FFE348C4000000000058696E670000000F...</textarea>
-                    <div class="flex gap-2">
-                        <input type="text" id="hex-answer" placeholder="輸入解碼結果" class="flex-1 border-2 border-blue-200 p-2 rounded-lg outline-none">
-                        <button onclick="checkHexAnswer()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">核對</button>
-                    </div>
-                    <div id="hex-result" class="mt-4 font-bold text-xl text-center"></div>
+        function renderUnit5() {
+            document.getElementById('content-area').innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-red-500">
+                    <h3 class="text-2xl font-bold mb-4">耐奎斯定理 (Nyquist Theorem)</h3>
+                    <p class="text-lg">為了能還原波形，<span class="text-red-600 font-bold">取樣頻率必須大於信號最高頻率的 2 倍</span>。</p>
+                    <p class="mt-4 text-gray-600">這就是為什麼 CD 音質取樣率設為 44.1 kHz (略大於人耳上限 20kHz 的兩倍)。</p>
                 </div>`;
         }
 
-        // *** 修正後的核對函數 ***
-        function checkHexAnswer() {
-            const input = document.getElementById("hex-answer").value.trim();
-            // "5pyD6ICD5Yqg5rK5" 是 "會考加油" 的 Base64 編碼
-            const correctAnswer = atob("5pyD6ICD5Yqg5rK5"); 
-            const resultDiv = document.getElementById("hex-result");
+        function renderUnit6() {
+            document.getElementById('content-area').innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md">
+                    <h3 class="font-bold text-blue-800 mb-2">十六進位訊息代碼</h3>
+                    <textarea readonly class="w-full h-32 bg-gray-900 text-green-400 p-3 rounded-lg font-mono text-xs">FFE348C400000000000000000058696E670000000F00000019000009900008080808111111112222222233333333444444555555555555D5D5D66666666666E6E6E7777777780808080808888888891919191999999AAAAAAAAB3B3B3B3B3BBBBBBC4C4C4C4CCCCCCCCC CD5D5D5DDDDDDDDDDE6E6E6E6EEEEEEF7F7F7F7F7FFFFFF000000394C414D4533</textarea>
+                    <p class="text-sm text-gray-500 mt-2">請使用 HexEd.it 工具解碼這段祝福語。</p>
+                </div>`;
+        }
 
-            if (input === correctAnswer) {
-                resultDiv.innerHTML = `<span class="text-green-600">✅ 正確！老師祝你：${correctAnswer}</span>`;
-            } else {
-                resultDiv.innerHTML = `<span class="text-red-600">❌ 答案不正確，再試試看喔！</span>`;
-            }
+        function renderUnit7() {
+            document.getElementById('content-area').innerHTML += `
+                <div class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-green-400">
+                    <h3 class="text-2xl font-bold mb-4">Audacity 實驗任務</h3>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li>任務 1：錄製一段「拍手聲」，觀察震幅。</li>
+                        <li>任務 2：使用「變更音高」，觀察波形變密(頻率變高)。</li>
+                    </ul>
+                </div>`;
         }
 
         function renderUnit8() {
-            const container = document.getElementById('content-area');
+            const area = document.getElementById('content-area');
             let html = `<div class="space-y-6">`;
             app.quiz.forEach((q, idx) => {
                 html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                    <p class="font-bold mb-2">${idx + 1}. ${q.q}</p>
-                    <div class="flex gap-4">
-                        <label><input type="radio" name="q${idx}" value="fg=="> 是</label>
-                        <label><input type="radio" name="q${idx}" value="bA=="> 否</label>
-                    </div>
-                </div>`;
+                    <p class="font-bold mb-3">${idx + 1}. ${q.q}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">`;
+                if(q.type === "tf") {
+                    html += `<label class="p-2 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q${idx}" value="T"> 是 / True</label>
+                             <label class="p-2 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q${idx}" value="F"> 否 / False</label>`;
+                } else {
+                    q.options.forEach((opt, oIdx) => {
+                        const val = String.fromCharCode(65 + oIdx);
+                        html += `<label class="p-2 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q${idx}" value="${val}"> ${opt}</label>`;
+                    });
+                }
+                html += `</div></div>`;
             });
-            html += `<button onclick="app.calculateScore()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">提交測驗</button>
-                <div id="quiz-result" class="hidden p-6 bg-green-50 rounded-xl border-2 border-green-500 text-center">
+
+            // 整合 Hex 任務進測驗最後
+            html += `
+                <div class="bg-orange-50 p-6 rounded-xl border-2 border-orange-300">
+                    <h4 class="font-bold text-orange-800 mb-2">🔑 終極破解挑戰</h4>
+                    <p class="mb-3">輸入從 Hex 任務中破解出來的「祝福文字」：</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="hex-input" class="flex-1 p-2 rounded border-2 border-orange-200" placeholder="在此輸入文字">
+                        <button onclick="checkHexInQuiz()" class="bg-orange-500 text-white px-4 py-2 rounded font-bold">驗證</button>
+                    </div>
+                    <div id="hex-result" class="mt-2 font-bold"></div>
+                </div>
+                <button onclick="app.calculateScore()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-xl shadow-lg">提交測驗</button>
+                <div id="quiz-result" class="hidden p-6 bg-green-100 rounded-xl border-2 border-green-500 text-center">
                     <h2 class="text-4xl font-black text-green-600" id="score-display"></h2>
-                    <button onclick="app.submitData()" class="mt-4 bg-green-600 text-white px-8 py-2 rounded-lg">上傳成績</button>
+                    <p id="score-detail" class="text-gray-700 my-2"></p>
+                    <button onclick="app.submitData()" class="mt-4 bg-green-600 text-white px-8 py-2 rounded-lg">上傳資料至資料庫</button>
                 </div></div>`;
-            container.innerHTML += html;
-            
-            app.calculateScore = () => {
-                let correct = 0;
-                app.quiz.forEach((q, idx) => {
-                    const selected = document.querySelector(`input[name="q${idx}"]:checked`);
-                    if (selected && selected.value === q.a) correct++;
-                });
-                app.quizScore = Math.round((correct / app.quiz.length) * 100);
-                document.getElementById('score-display').innerText = `${app.quizScore} 分`;
-                document.getElementById('quiz-result').classList.remove('hidden');
-            };
+            area.innerHTML += html;
+        }
+
+        // --- Hex 驗證函數 ---
+        function checkHexInQuiz() {
+            const input = document.getElementById('hex-input').value.trim();
+            const correctStr = atob("5pyD6ICD5Yqg5rK5"); // 會考加油
+            const res = document.getElementById('hex-result');
+            if(input === correctStr) {
+                res.innerHTML = "✅ 破解成功！獲得額外加分回饋！";
+                res.className = "mt-2 font-bold text-green-600";
+                app.hexBonus = true;
+            } else {
+                res.innerHTML = "❌ 內容不對喔，再檢查一下解碼結果。";
+                res.className = "mt-2 font-bold text-red-600";
+            }
         }
 
         window.onload = refreshIcons;
