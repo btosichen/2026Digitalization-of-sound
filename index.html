@@ -327,19 +327,16 @@
         }
 
         // --- Hex 驗證函數 ---
-        function checkHexInQuiz() {
-            const input = document.getElementById('hex-input').value.trim();
-            const correctStr = atob("5pyD6ICD5Yqg5rK5"); 
-            const res = document.getElementById('hex-result');
-            if(input === correctStr) {
-                res.innerHTML = "✅ 破解成功！獲得額外加分回饋！";
-                res.className = "mt-2 font-bold text-green-600";
-                app.hexBonus = true;
-            } else {
-                res.innerHTML = "❌ 內容不對喔，再檢查一下解碼結果。";
-                res.className = "mt-2 font-bold text-red-600";
-            }
-        }
+        function checkHexAnswer() {
+    const input = document.getElementById("hex-answer").value.trim(); // 抓取輸入並去空白
+    const correctAnswer = atob("5pyD6ICD5Yqg5rK5"); // 確保解碼出「會考加油」
+    
+    if (input === correctAnswer) {
+        // 顯示正確視覺回饋
+    } else {
+        // 顯示錯誤視覺回饋
+    }
+}
 
         window.onload = refreshIcons;
     </script>
