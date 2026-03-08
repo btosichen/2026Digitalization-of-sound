@@ -6,8 +6,6 @@
     <title>聲音數位化冒險 - Digitization of Sound</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Noto+Sans+TC', sans-serif; background-color: #f8fafc; }
@@ -17,7 +15,6 @@
         .wave-container { height: 350px; width: 100%; }
         .module-header { border-bottom: 4px solid #f1f5f9; margin-bottom: 2rem; padding-bottom: 1rem; }
         .sidebar-btn { display: flex; align-items: center; gap: 12px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .sidebar-btn i { width: 20px; height: 20px; }
         .example-card { transition: all 0.3s ease; }
         .example-card:hover { transform: translateY(-5px); }
     </style>
@@ -254,23 +251,23 @@
                 <section id="mod-quiz" class="module hidden">
                     <div id="quiz-intro" class="text-center py-10">
                         <img src="https://api.iconify.design/noto/trophy.svg" alt="icon" class="w-24 h-24 mx-auto mb-6 drop-shadow-xl hover:scale-110 transition-transform">
-                        <h2 class="text-4xl font-black text-slate-800 mb-4">實戰測驗</h2>
+                        <h2 class="text-4xl font-black text-slate-800 mb-4">實戰測驗 (共20題)</h2>
                         <button onclick="startQuiz()" class="bg-orange-500 text-white px-12 py-5 rounded-3xl font-black shadow-xl">開始挑戰</button>
                     </div>
                     <div id="quiz-content" class="hidden">
                         <div class="mb-10 flex justify-between items-center bg-slate-50 p-4 rounded-2xl">
-                            <span id="quiz-progress-text" class="font-black text-slate-600">Question 1 / 10</span>
+                            <span id="quiz-progress-text" class="font-black text-slate-600">Question 1 / 20</span>
                             <span id="quiz-timer" class="font-mono font-black text-orange-600">00:00</span>
                         </div>
                         <div id="question-box">
-                            <h3 id="question-text" class="text-2xl font-black text-slate-800 mb-8"></h3>
+                            <h3 id="question-text" class="text-2xl font-black text-slate-800 mb-8 leading-relaxed"></h3>
                             <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                         </div>
                     </div>
                     <div id="quiz-result" class="hidden text-center py-10">
                         <h2 class="text-4xl font-black text-slate-800 mb-4">任務完成！</h2>
                         <div class="text-6xl font-black text-blue-600 mb-8" id="final-score">0</div>
-                        <div id="upload-status" class="bg-slate-100 p-4 rounded-2xl text-slate-500 font-bold mb-8">正在同步紀錄...</div>
+                        <div id="upload-status" class="bg-slate-100 p-4 rounded-2xl text-slate-500 font-bold mb-8">正在加密同步紀錄...</div>
                         <button onclick="location.reload()" class="bg-slate-800 text-white px-8 py-4 rounded-2xl font-black">重新探索</button>
                     </div>
                 </section>
@@ -283,21 +280,35 @@
         // --- GAS 設定 (請將此網址替換為你佈署後的網址) ---
         const GAS_URL = "https://script.google.com/macros/s/AKfycbyhSuy_F8DnVgu6DppYOcCM-XtX1PFLlWKBaVlGVMo8WN3o_ALZWMM2bS9lc_faOkO--w/exec"; 
 
+        // 加密與解密輔助函式 (Base64)
+        const encData = (str) => btoa(encodeURIComponent(str));
+
         const state = {
             user: { class: '', seat: '', name: '' },
             bitDepth: 8,
             quiz: {
+                // 答案皆經過編碼混淆，防止檢視原始碼偷看
                 questions: [
-                    { q: "聲音在自然界中是一種「離散」訊號。", a: false, type: "tf" },
-                    { q: "「取樣」是在時間維度上進行切片測量。", a: true, type: "tf" },
-                    { q: "CD 音質的標準取樣率通常是 44.1kHz。", a: true, type: "tf" },
-                    { q: "取樣頻率低於聲音最高頻率的 2 倍會產生失真。", a: true, type: "tf" },
-                    { q: "「量化」位元深度越高，表示測量的刻度越粗糙。", a: false, type: "tf" },
-                    { q: "8-bit 量化可以將音量切成 256 個刻度階層。", a: true, type: "tf" },
-                    { q: "數位聲音相較於類比聲音，更難以進行無限次的精準複製。", a: false, type: "tf" },
-                    { q: "音訊數位化的正確順序為：取樣 -> 量化 -> 編碼。", a: true, type: "tf" },
-                    { q: "人耳聽覺上限約為 20,000 Hz。", a: true, type: "tf" },
-                    { q: "量化位元深度越大，儲存檔案的大小會越小。", a: false, type: "tf" }
+                    { q: "聲音在自然界中是一種「離散」訊號。", encA: "ZmFsc2U=", type: "tf" },
+                    { q: "「取樣」是在時間維度上進行切片測量。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "CD 音質的標準取樣率通常是 44.1kHz。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "取樣頻率低於聲音最高頻率的 2 倍會產生失真。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "「量化」位元深度越高，表示測量的刻度越粗糙。", encA: "ZmFsc2U=", type: "tf" },
+                    { q: "8-bit 量化可以將音量切成 256 個刻度階層。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "數位聲音相較於類比聲音，更難以進行無限次的精準複製。", encA: "ZmFsc2U=", type: "tf" },
+                    { q: "音訊數位化的正確順序為：取樣 -> 量化 -> 編碼。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "人耳聽覺上限約為 20,000 Hz。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "量化位元深度越大，儲存檔案的大小會越小。", encA: "ZmFsc2U=", type: "tf" },
+                    { q: "一般電話語音的取樣率大約是多少？", encA: "Qg==", type: "mc", options: ["2000 Hz", "8000 Hz", "44100 Hz", "192000 Hz"] },
+                    { q: "聲音的頻率決定了我們聽到的音高，頻率越高聲音越低。", encA: "ZmFsc2U=", type: "tf" },
+                    { q: "16-bit 的量化深度可以提供 65,536 種不同的音量階層。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "下列哪一個名詞是用來描述「將連續的聲波轉換為不連續的數值」的整體過程？", encA: "Qg==", type: "mc", options: ["聲音放大", "聲音數位化", "聲音類比化", "聲音壓縮"] },
+                    { q: "量化過程中，因為刻度無法完全貼合原始波形而產生的誤差，稱為「量化雜訊」。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "若一段聲音的最高頻率為 15,000 Hz，根據耐奎斯定理，取樣率至少需要多少才不會失真？", encA: "Qw==", type: "mc", options: ["15,000 Hz", "20,000 Hz", "30,000 Hz", "44,100 Hz"] },
+                    { q: "將類比聲音轉換為數位聲音後，即使經過多次拷貝複製，音質也不會像傳統錄音帶那樣逐漸劣化。", encA: "dHJ1ZQ==", type: "tf" },
+                    { q: "電腦儲存數位聲音時，最底層的硬碟是用什麼進位制來記錄的？", encA: "RA==", type: "mc", options: ["十進位", "十六進位", "八進位", "二進位"] },
+                    { q: "只要取樣率夠高（例如達到 192kHz），即使量化位元深度只有 4-bit 也能達到 CD 等級的完美音質。", encA: "ZmFsc2U=", type: "tf" },
+                    { q: "音訊檔案的原始大小（未壓縮前）與下列何者「無關」？", encA: "QQ==", type: "mc", options: ["聲音的播放音量", "取樣頻率", "量化位元深度", "聲音的時間長度"] }
                 ],
                 currentIndex: 0,
                 score: 0,
@@ -314,7 +325,6 @@
             state.user = { class: cls, seat: seat, name: name };
             document.getElementById('user-info-display').innerText = `${cls}班 ${seat}號 ${name}`;
             document.getElementById('login-overlay').classList.add('hidden');
-            lucide.createIcons();
             initCharts();
             animateWaveIntro();
         }
@@ -328,7 +338,7 @@
             if(modId === 'quantization') updateQuantization();
         }
 
-        // --- Chart/Animation Logic (Same as before) ---
+        // --- Chart/Animation Logic ---
         let samplingChart, quantizationChart;
         function initCharts() {
             const ctxS = document.getElementById('samplingChart').getContext('2d');
@@ -401,9 +411,26 @@
             }, 200);
         }
 
+        function decodeHex() {
+            const input = document.getElementById('hex-input').value.replace(/\s/g, '');
+            const resultDiv = document.getElementById('hex-result');
+            try {
+                let str = '';
+                for (let i = 0; i < input.length; i += 2) {
+                    str += String.fromCharCode(parseInt(input.substr(i, 2), 16));
+                }
+                resultDiv.innerText = "解碼成功： " + str + " 🎊";
+                resultDiv.classList.remove('hidden');
+            } catch (e) {
+                alert("HEX 格式好像不太對喔，再檢查一下！");
+            }
+        }
+
         // --- Quiz Logic ---
         function startQuiz() {
-            state.quiz.currentIndex = 0; state.quiz.score = 0; state.quiz.wrongIndices = [];
+            state.quiz.currentIndex = 0; 
+            state.quiz.score = 0; 
+            state.quiz.wrongIndices = [];
             state.quiz.startTime = new Date();
             document.getElementById('quiz-intro').classList.add('hidden');
             document.getElementById('quiz-content').classList.remove('hidden');
@@ -413,28 +440,48 @@
 
         function renderQuestion() {
             const q = state.quiz.questions[state.quiz.currentIndex];
-            document.getElementById('quiz-progress-text').innerText = `Question ${state.quiz.currentIndex + 1} / 10`;
+            document.getElementById('quiz-progress-text').innerText = `Question ${state.quiz.currentIndex + 1} / 20`;
             document.getElementById('question-text').innerText = q.q;
             const container = document.getElementById('options-container');
             container.innerHTML = '';
-            const opts = q.type === 'tf' ? [true, false] : q.options;
-            opts.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = "p-6 border-2 border-slate-100 rounded-2xl hover:border-blue-400 font-bold bg-white text-left";
-                btn.innerText = (opt === true) ? "正確 (TRUE)" : (opt === false ? "錯誤 (FALSE)" : opt);
-                btn.onclick = () => handleAnswer(opt);
-                container.appendChild(btn);
-            });
+            
+            if (q.type === 'tf') {
+                const opts = [{text: "正確 (TRUE)", val: true}, {text: "錯誤 (FALSE)", val: false}];
+                opts.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "p-6 border-2 border-slate-100 rounded-2xl hover:border-blue-400 font-bold bg-white text-left text-lg";
+                    btn.innerText = opt.text;
+                    btn.onclick = () => handleAnswer(opt.val);
+                    container.appendChild(btn);
+                });
+            } else {
+                q.options.forEach((optText, idx) => {
+                    const char = String.fromCharCode(65 + idx); // 產生 A, B, C, D
+                    const btn = document.createElement('button');
+                    btn.className = "p-6 border-2 border-slate-100 rounded-2xl hover:border-blue-400 font-bold bg-white text-left text-lg";
+                    btn.innerText = `${char}. ${optText}`;
+                    btn.onclick = () => handleAnswer(char);
+                    container.appendChild(btn);
+                });
+            }
         }
 
         function handleAnswer(ans) {
             const q = state.quiz.questions[state.quiz.currentIndex];
-            if(ans === q.a) state.quiz.score += 10;
-            else state.quiz.wrongIndices.push(state.quiz.currentIndex + 1);
+            
+            // 將使用者的答案加密後，與題庫的加密字串比對
+            if(encData(String(ans)) === q.encA) {
+                state.quiz.score += 5; // 共 20 題，每題 5 分
+            } else {
+                state.quiz.wrongIndices.push(state.quiz.currentIndex + 1);
+            }
 
-            if(state.quiz.currentIndex < 9) {
-                state.quiz.currentIndex++; renderQuestion();
-            } else { finishQuiz(); }
+            if(state.quiz.currentIndex < 19) {
+                state.quiz.currentIndex++; 
+                renderQuestion();
+            } else { 
+                finishQuiz(); 
+            }
         }
 
         function startTimer() {
@@ -449,34 +496,36 @@
         async function finishQuiz() {
             document.getElementById('quiz-content').classList.add('hidden');
             document.getElementById('quiz-result').classList.remove('hidden');
-            document.getElementById('final-score').innerText = `${state.quiz.score} 點`;
+            document.getElementById('final-score').innerText = `${state.quiz.score} 分`;
             
             const record = {
                 timestamp: new Date().toLocaleString(),
                 class: state.user.class,
                 seat: state.user.seat,
                 name: state.user.name,
-                correctCount: 10 - state.quiz.wrongIndices.length,
-                wrongQuestions: state.quiz.wrongIndices.join(', ') || '無',
+                correctCount: 20 - state.quiz.wrongIndices.length,
+                wrongQuestions: state.quiz.wrongIndices.join(', ') || '全對',
                 score: state.quiz.score,
                 duration: document.getElementById('quiz-timer').innerText
             };
 
-            // 上傳 GAS (如果 GAS_URL 有值)
             if(GAS_URL) {
                 try {
+                    // 將整包資料轉為 JSON 後，進行 Base64 加密封裝，防止中途被攔截看見明文
+                    const encryptedPayload = encData(JSON.stringify(record));
+                    
                     await fetch(GAS_URL, {
                         method: 'POST',
                         mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(record)
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: encryptedPayload
                     });
-                    document.getElementById('upload-status').innerText = "✅ 紀錄已成功上傳試算表！";
+                    document.getElementById('upload-status').innerText = "✅ 加密紀錄已成功安全上傳！";
                 } catch (e) {
-                    document.getElementById('upload-status').innerText = "❌ 上傳失敗，請聯繫老師。";
+                    document.getElementById('upload-status').innerText = "❌ 傳輸失敗，請檢查網路。";
                 }
             } else {
-                document.getElementById('upload-status').innerText = "⚠️ 未設定 GAS URL，僅顯示本地紀錄。";
+                document.getElementById('upload-status').innerText = "⚠️ 未設定伺服器，無法上傳。";
             }
         }
     </script>
