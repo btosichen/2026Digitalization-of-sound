@@ -406,42 +406,37 @@
         }
 
         function renderUnit6() {
-            const container = document.getElementById('content-area');
-            container.innerHTML += `
-                <div class="bg-white p-6 rounded-2xl shadow-md">
-                    <h3 class="text-2xl font-bold text-blue-800 mb-4 flex items-center gap-2"><i data-lucide="file-code-2"></i> 十六進位(HEX) 聲音解碼任務</h3>
-                    <p class="mb-4 text-gray-700">電腦底層儲存聲音檔案其實是一連串 16 進位代碼。請嘗試把以下神祕代碼還原成聲音！</p>
-                    <div class="bg-gray-800 rounded-xl p-4 mb-4">
-                        <textarea id="hex-input" class="w-full h-32 bg-gray-900 text-green-400 font-mono text-sm p-3 border-none outline-none resize-none rounded-lg" placeholder="請在此貼上 HEX 代碼..."></textarea>
-                    </div>
-                    <div class="flex gap-4">
-                        <button onclick="app.loadSampleHex()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition">載入測試樣本</button>
-                        <button onclick="app.decodeHex()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-lg transition"><i data-lucide="play"></i> 解碼並播放</button>
-                    </div>
-                    <div id="audio-container" class="mt-4 hidden text-center p-4 bg-green-50 rounded-xl border border-green-200">
-                        <p class="text-green-800 font-bold mb-2">✅ 解碼成功！</p>
-                        <audio id="decoded-audio" controls class="mx-auto"></audio>
-                    </div>
-                </div>
-            `;
-            app.loadSampleHex = () => {
-                document.getElementById('hex-input').value = "524946462400000057415645666d74201000000001000100401f0000401f0000010008006461746100000000" + 
-                               "8090a0b0c0d0e0f0ffe0d0c0b0a090807060504030201000102030405060708090a0b0c0d0e0f0ffe0d0c0b0a09080" +
-                               "8090a0b0c0d0e0f0ffe0d0c0b0a090807060504030201000102030405060708090a0b0c0d0e0f0ffe0d0c0b0a09080";
-            };
-            app.decodeHex = () => {
-                const hexStr = document.getElementById('hex-input').value.replace(/\s/g, '');
-                if(hexStr.length === 0 || hexStr.length % 2 !== 0) return app.showAlert("錯誤", "無效的 HEX 字串。");
-                try {
-                    const bytes = new Uint8Array(hexStr.length / 2);
-                    for (let i = 0; i < hexStr.length; i += 2) bytes[i / 2] = parseInt(hexStr.substr(i, 2), 16);
-                    const audioEl = document.getElementById('decoded-audio');
-                    audioEl.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }));
-                    document.getElementById('audio-container').classList.remove('hidden');
-                    audioEl.play().catch(e => console.log(e));
-                } catch(e) { app.showAlert("失敗", "解碼失敗"); }
-            };
-        }
+    const container = document.getElementById('content-area');
+    container.innerHTML += `
+        <div class="bg-white p-6 rounded-2xl shadow-md">
+            <h3 class="text-2xl font-bold text-blue-800 mb-4 flex items-center gap-2">
+                <i data-lucide="file-code-2"></i> 神祕的十六進位文字
+            </h3>
+
+            <p class="mb-4 text-gray-700 leading-relaxed">
+            為了驗收學生「文字數位化」的學習成果，老師傳了一段
+            <strong class="text-orange-600">神祕的十六進位訊息</strong>給他的學生。<br>
+            這是一句祝福文字，你能破解它嗎？
+            </p>
+
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl mb-6">
+                <h4 class="font-bold text-blue-800 mb-2">🧠 破解提示</h4>
+                <ol class="list-decimal pl-6 space-y-2 text-gray-700">
+                    <li>打開網站 <a href="https://hexed.it" target="_blank" class="text-blue-600 underline">HexEd.it</a></li>
+                    <li>點擊「新增檔案」</li>
+                    <li>把下面的訊息用 <strong>十六進位模式</strong>貼上</li>
+                    <li>另存新檔為 <strong>1.mp3</strong></li>
+                    <li>開啟檔案，神祕文字就會浮現！</li>
+                </ol>
+            </div>
+
+            <div class="bg-gray-900 text-green-400 font-mono p-4 rounded-xl">
+                <p class="text-gray-400 mb-2">任務提示：</p>
+                <p>請前往「8.終極測驗挑戰」取得神祕 HEX 訊息。</p>
+            </div>
+        </div>
+    `;
+}
 
         function renderUnit7() {
             const container = document.getElementById('content-area');
@@ -476,6 +471,24 @@
                         <h3 class="text-3xl font-extrabold text-orange-600 mb-2">🔥 終極測驗挑戰 🔥</h3>
                         <p class="text-gray-600">總共 20 題，驗收你的數位聲音知識！</p>
                     </div>
+                    <div class="bg-yellow-50 border border-yellow-300 p-5 rounded-xl mt-6 mb-6">
+    <h4 class="font-bold text-yellow-800 text-lg mb-3 flex items-center gap-2">
+        🕵️ 神祕十六進位任務
+    </h4>
+
+    <p class="text-gray-700 mb-3">
+    下面是一段神祕的十六進位訊息。<br>
+    請複製後到 <strong>HexEd.it</strong> 嘗試解碼，看看老師留下的祝福是什麼！
+    </p>
+
+    <textarea class="w-full h-48 bg-gray-900 text-green-400 font-mono text-xs p-3 rounded-lg select-all">
+FFE348C400000000000000000058696E670000000F0000001900000990000808080811111111222222223333333344444455555555555D5D5D66666666666E6E6E7777777780808080808888888891919191999999AAAAAAAAB3B3B3B3B3BBBBBBC4C4C4C4CCCCCCCCCCD5D5D5DDDDDDDDDDE6E6E6E6EEEEEEF7F7F7F7F7FFFFFF000000394C414D45332E313030021E000000000000000014082403EF2200000800000990B51C595E0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFE318C4000B
+    </textarea>
+
+    <p class="text-sm text-gray-500 mt-2">
+    📋 點擊文字即可複製
+    </p>
+</div>
                     <div id="quiz-container" class="space-y-8"></div>
                     <div class="mt-10 text-center">
                         <button onclick="app.calculateScore()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">提交答案算分</button>
